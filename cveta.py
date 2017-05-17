@@ -45,7 +45,7 @@ print(("CVEs for :" + linDist))
 #for line in cmd.stdout:
 #    if "glibc" in line:
 #        print line
-
+print("Fetching data from:")
 ##### GET RAW HTML #########################################
 tocrawl = set(["https://people.canonical.com/~ubuntu-security/cve/main.html"])  #MAIN REPO      
 tocrawl2 = set(["https://people.canonical.com/~ubuntu-security/cve/universe.html"]) #UNIVERSE REPO
@@ -102,7 +102,7 @@ headings = [th.get_text() for th in table.find("tr").find_all("th")]
 distroCol = 0
 for th in table.find("tr").find_all("th"):# iterate left to rigth first row as contains th
 	for valueth in th: #iterate thcol and get value
-		print(valueth) #	deb
+#		print(valueth) #	to get args then
 		if linDist == valueth:
 # if r'Ubuntu 16.04 LTS (Xenial Xerus)' == valueth:
 			distroColMatch = distroCol
@@ -248,9 +248,9 @@ for pkgname in sorted(Pkglist): #ordered alpha a-z
 print("\n---REPORT---")
 print(str(pkgFoundcvetotal)  + "\t :Pkgs. with OPEN CVEs on this system with " + str(len(datasetCVEA)) + " CVEs" )
 print(str(pkgFoundtotal) + "\t :Pkgs. for this system in Ubuntu CVE tracker")
-print(str(len(dataPkgnotfound)) + "\t :Pkgs with not CVE or not installed from ubuntu repo")
+print(str(len(dataPkgnotfound)) + "\t :Pkgs. without CVEs or not installed from standards repos")
 # print(str(len(srcPkglist)) + "\t :Total Pkgs sources installed on this system")
-print(str(len(Pkglist)) + "\t :Total Pkgs Installed on this system, with (" + str(len(srcPkglist)) + ") sources" )
+print(str(len(Pkglist)) + "\t :Total Pkgs. Installed on this system, with (" + str(len(srcPkglist)) + ") sources" )
 
 print(
 # '"DNE" means that the package does not exist within the lineage'+
