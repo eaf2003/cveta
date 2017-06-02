@@ -81,7 +81,7 @@ try:
     msg3 = response3.content
 except KeyError:
      raise StopIteration
- print("error X")
+     print("error X")
 
 # ##GET TABLES FROM HTMLS
 soup = BeautifulSoup(msg, "html.parser")
@@ -103,30 +103,22 @@ table3 = soup3.find("table")
 # FIND N GET HEADER DISTRO COLUMN NUMBER, assume all tables will have same headers, uso la table 1 porque las demas serian iguales, si no crear uno de estos x cada table
 # as the tables could change by ubuntu cve tr. 'masters', i'd not consolidate its parsing in an unique func.
 # better to treat those independently
-linux_distro_col_number = 0
-for th in table.find("tr").find_all("th"):  # iterate left to rigth first row as contains th
-    for valueth in th:  # iterate thcol and get value
-        #        print(valueth) #    to get args then
-        if linux_distro_name == valueth:
-            distroColMatch = linux_distro_col_number
-        # print distroColMatch #deb
-        linux_distro_col_number = linux_distro_col_number + 1  # pruebo la prox col
 
-# FIND N GET HEADER CVE# COLUMN NUMBER
-cve_col_number = 0
-for th in table.find("tr").find_all("th"):  # iterate row
-    for valueth in th:  # iterate thcol and get value
-        if cve_table_col_name == valueth:
-            cveColMatch = cve_col_number
-        cve_col_number = cve_col_number + 1
+linux_distro_col_idx = None
+cve_col_idx = None
+pkgname_col_idx = None
+for i, th in enumerate(table.find("tr").find_all("th")):  # iterate left to rigth first row as contains th
+    valueth = th.text
+    if linux_distro_name == valueth:
+        linux_distro_col_idx = i
+    elif cve_table_col_name == valueth:
+        cve_col_idx = i
+    elif pkg_table_col_name == valueth:
+        pkgname_col_idx = i
 
-# Find n GET HEADER PKGName COLUMN NUMBER
-pkg_col_number = 0
-for th in table.find("tr").find_all("th"):  # iterate row
-    for valueth in th:  # iterate thcol and get value
-        if pkg_table_col_name == valueth:
-            pkgnameColMatch = pkg_col_number
-        pkg_col_number = pkg_col_number + 1
+if linux_distro_col_idx is None or cve_col_idx is None or pkgname_col_idx is None:
+    raise StopIteration
+
 ############ GET COLS NUMBER END################################
 
 ##OLD TB REMOVE
@@ -137,53 +129,33 @@ for th in table.find("tr").find_all("th"):  # iterate row
 
 ## MERGE ALL TABLES IN ONE DATASET WITH COLUMNS PKNAME,CVENUMBER,STATUS,REPOSITORYPROVIDERNAME
 print("create list from data from internet,filtered by linux distro")
-datasetA = []
+dt_all = []
 # process table main
-for row in table.find_all("tr")[1:]:  # el 1: omite la 1er linea que contiene headings, iterate rows
-    cells = row.find_all("td")  # iterate tds in each row
-    #    print cells[distroColMatch].get_text() #DEBUG
-    #    time.sleep(3) #DEBUG
-    status = cells[distroColMatch].get_text()  # get text from td that belong to distroStatus
-    cveno = cells[cveColMatch].get_text()  # get text from td that belong to CVEno
-    pkName = cells[pkgnameColMatch].get_text()
-    tableName = r'main'
-    #    print pkName + " " + status #DEBUG
-    #    time.sleep(3) #DEBUG
-    dataA = (pkName, cveno, status, tableName)  # create tuple each time
-    #    print dataA
-    datasetA.append(dataA)  # append tuple to array, so i create a list
-# process table2 universe
-for row2 in table2.find_all("tr")[1:]:
-    cells2 = row2.find_all("td")
-    status2 = cells2[distroColMatch].get_text()  # get text from td that belong to distroStatus
-    cveno2 = cells2[cveColMatch].get_text()  # get text from td that belong to CVEno
-    pkName2 = cells2[pkgnameColMatch].get_text()
-    tableName2 = r'universe'
-    dataA = (pkName2, cveno2, status2, tableName2)  # create tuple each time
-    #    print dataA
-    datasetA.append(dataA)  # append tuple to array, so i create a list
-# process table3 part
-for row3 in table3.find_all("tr")[1:]:
-    cells3 = row3.find_all("td")
-    status3 = cells3[distroColMatch].get_text()  # get text from td that belong to distroStatus
-    cveno3 = cells3[cveColMatch].get_text()  # get text from td that belong to CVEno
-    pkName3 = cells3[pkgnameColMatch].get_text()
-    tableName3 = r'partner'
-    dataA = (pkName3, cveno3, status3, tableName3)  # create tuple each time
-    #    print dataA
-    datasetA.append(dataA)  # append tuple to array, so i create a list
+def merge_tables(table_soup, table_name):
+    for row in table_soup.find_all("tr")[1:]:  # el 1: omite la 1er linea que contiene headings, iterate rows
+        cells = row.find_all("td")  # iterate tds in each row
+        #    print cells[distroColMatch].get_text() #DEBUG
+        #    time.sleep(3) #DEBUG
+        status = cells[linux_distro_col_idx].get_text()  # get text from td that belong to distroStatus
+        cveno = cells[cve_col_idx].get_text()  # get text from td that belong to CVEno
+        pkName = cells[pkgname_col_idx].get_text()
+        dataA = (pkName, cveno, status, table_name)  # create tuple each time
+        #    print dataA
+        dt_all.append(dataA)  # append tuple to array, so i create a list
+
+merge_tables(table, 'main')
+merge_tables(table2, 'universe')
+merge_tables(table3, 'partner')
 
 # CREATE A DATASET(datasetCVEA) WITH LOCAL DETECTED VULNERABILITIES, WITH COLUMNS PKNAME,CVENUMBER,STATUS,REPOSITORYPROVIDERNAME
 dt_pkg_with_cve = []
 dt_pkg_not_found = []
 dt_pkg_found = []
 datasetCVEA = []
-
-
-def GetCVEWarning(Ipkgname):  # compares pkcsource name on sys vs pkgname on tables
+def get_cve_warning(Ipkgname):  # compares pkcsource name on sys vs pkgname on tables
     #   global dt_pkg_not_found
     pkgFound = 0
-    for tuplaA in datasetA:  # el 1 omite la 1er linea que contiene headings, iterate rows
+    for tuplaA in dt_all:  # el 1 omite la 1er linea que contiene headings, iterate rows
         statusA = tuplaA[2]  # get text from td that belong to distroStatus
         cvenoA = tuplaA[1]  # cells[cveColMatch].get_text() #get text from td that belong to CVEno
         pkNameA = tuplaA[0]  # cells[pkgnameColMatch].get_text()
@@ -226,7 +198,7 @@ for pkg in cache:
         lst_pkg_name.add(pkg.name)
         # lst_pkg_source_name.add(pkg.versions[0].source_name)
 for pkgname in sorted(lst_pkg_name):  # ordered alpha a-z
-    GetCVEWarning(pkgname)  # process each pkg
+    get_cve_warning(pkgname)  # process each pkg
 
 print("\n---REPORT---")
 print(str(len(dt_pkg_with_cve)) + "\t :Pkgs. with OPEN CVEs on this system with " + str(len(datasetCVEA)) + " CVEs")
